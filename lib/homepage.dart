@@ -1,7 +1,6 @@
 import 'package:diploma_risk_predictor/app_button.dart';
 import 'package:diploma_risk_predictor/app_input.dart';
 import 'package:diploma_risk_predictor/input_label.dart';
-import 'package:diploma_risk_predictor/my_app_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
@@ -14,7 +13,12 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  List<TextEditingController> controllers = [];
+  late bool showRequiredMessage;
+  late TextEditingController ageController;
+  late TextEditingController bmiController;
+  late TextEditingController physicalHealthController;
+  late TextEditingController mentalHealthController;
+  late TextEditingController sleepController;
   String result = 'невизначений';
   late Interpreter interpreter;
   List<String> isSmoking = ['Yes', 'No'];
@@ -40,25 +44,24 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    controllers = [
-      TextEditingController(),
-      TextEditingController(),
-      TextEditingController(),
-      TextEditingController(),
-      TextEditingController()
-    ];
+    showRequiredMessage = false;
+    ageController = TextEditingController();
+    bmiController = TextEditingController();
+    physicalHealthController = TextEditingController();
+    mentalHealthController = TextEditingController();
+    sleepController = TextEditingController();
     loadModel();
   }
 
   Future<void> loadModel() async {
-    interpreter = await Interpreter.fromAsset('assets/dnn.tflite');
+    interpreter = await Interpreter.fromAsset('assets/dnn_after_smote.tflite');
   }
 
   void performAction() {
     // int x = int.parse(numberController.text);
 
     // For ex: if input tensor shape [1,5] and type is float32
-    var input = [
+    var fake_input = [
       [
         0.0,
         1.0,
@@ -112,6 +115,25 @@ class _HomePageState extends State<HomePage> {
         0.173913
       ]
     ];
+    var input = [
+      [
+        double.parse(bmiController.text),
+        selectedSmoking == 'Yes' ? 1 : 0,
+        selectedAlcohol == 'Yes' ? 1 : 0,
+        selectedStroke == 'Yes' ? 1 : 0,
+        double.parse(physicalHealthController.text),
+        double.parse(mentalHealthController.text),
+        selectedDiffWalking == 'Yes' ? 1 : 0,
+        selectedSex == 'Male' ? 1 : 0,
+        double.parse(ageController.text) ~/ 5 - 3,
+        5,
+        selectedDiabetic.contains('Yes') ? 1 : 0,
+        selectedPhysicalActivity == 'Yes' ? 1 : 0,
+        double.parse(sleepController.text),
+      ]
+    ];
+    // var input = [[21.2, 0, 1, 0, 27.0, 25.0, 0, 1, 1, 0, 1, 7.0]];
+    print(input);
     // var input = [x];
 
     // if output tensor shape [1,2] and type is float32
@@ -126,43 +148,95 @@ class _HomePageState extends State<HomePage> {
     // ];
     print(output);
     setState(() {
-      // result = 'Result: ${output[0][0]}';
-      result = '14%';
+      result = '${(output[0][0] * 100).round()} %';
+      // result = '14%';
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: const Color.fromARGB(255, 188, 71, 221),
-        title: Text('CVD Risk Estimator',
-            style: GoogleFonts.nunito(
-                fontSize: 18,
-                color: Colors.white,
-                fontWeight: FontWeight.w700)),
-      ),
-      body: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 24),
-        child: Expanded(
+        appBar: AppBar(
+          backgroundColor: const Color.fromARGB(255, 188, 71, 221),
+          title: Text('CVD Risk Estimator',
+              style: GoogleFonts.nunito(
+                  fontSize: 18,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700)),
+        ),
+        body: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 24),
           child: SingleChildScrollView(
-        child: Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: <Widget>[
-                // const MyAppBar(
-                //   content: Text('CVD Risk Estimator'),
-                // ),
-                // TextField(
-                //   // controller: numberController,
-                //   decoration: const InputDecoration(hintText: 'Type in'),
-                // ),
                 const SizedBox(height: 8),
                 const InputLabel(label: 'Введіть ваш вік:'),
                 TextInput(
-                    label: '18-99',
-                    keyboardType: TextInputType.number,
-                    controller: controllers[0]),
+                  label: '18-99',
+                  errorText: (ageController.text.isEmpty ||
+                              double.tryParse(ageController.text) == null ||
+                              double.parse(ageController.text) < 18 ||
+                              double.parse(ageController.text) > 99) &&
+                          showRequiredMessage
+                      ? 'Будь ласка, введіть вік правильно'
+                      : null,
+                  keyboardType: TextInputType.number,
+                  controller: ageController,
+                  onChanged: (String value) {
+                    if (value.isEmpty) {
+                      setState(() {});
+                    }
+                  },
+                ),
+                const SizedBox(height: 8),
+                const InputLabel(label: 'Яка ваша стать?'),
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 1,
+                      child: Row(
+                        children: [
+                          Radio(
+                            value: sex[0],
+                            activeColor:
+                                const Color.fromARGB(255, 39, 146, 240),
+                            groupValue: selectedSex,
+                            onChanged: (value) {
+                              setState(() {
+                                selectedSex = value.toString();
+                              });
+                            },
+                          ),
+                          Text('Чоловіча',
+                              style: GoogleFonts.nunito(
+                                  color: Colors.black, fontSize: 16)),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      flex: 1,
+                      child: Row(
+                        children: [
+                          Radio(
+                            value: sex[1],
+                            activeColor:
+                                const Color.fromARGB(255, 39, 146, 240),
+                            groupValue: selectedSex,
+                            onChanged: (value) {
+                              setState(() {
+                                selectedSex = value.toString();
+                              });
+                            },
+                          ),
+                          Text('Жіноча',
+                              style: GoogleFonts.nunito(
+                                  color: Colors.black, fontSize: 16)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 8),
                 const InputLabel(label: 'Ви курите?'),
                 Row(
@@ -260,7 +334,7 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                const InputLabel(label: 'У вас був інфаркт?'),
+                const InputLabel(label: 'У вас був інсульт?'),
                 Row(
                   children: [
                     Expanded(
@@ -437,7 +511,7 @@ class _HomePageState extends State<HomePage> {
                     label: 'Наприклад: 23.76',
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
-                    controller: controllers[1]),
+                    controller: bmiController),
                 const SizedBox(height: 8),
                 const InputLabel(
                     label:
@@ -445,7 +519,7 @@ class _HomePageState extends State<HomePage> {
                 TextInput(
                     label: '0-30',
                     keyboardType: TextInputType.number,
-                    controller: controllers[2]),
+                    controller: physicalHealthController),
                 const SizedBox(height: 8),
                 const InputLabel(
                     label:
@@ -453,20 +527,21 @@ class _HomePageState extends State<HomePage> {
                 TextInput(
                     label: '0-30',
                     keyboardType: TextInputType.number,
-                    controller: controllers[3]),
+                    controller: mentalHealthController),
                 const SizedBox(height: 8),
                 const InputLabel(label: 'Середня тривалість сну на добу:'),
                 TextInput(
                     label: 'Наприклад: 7.5',
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
-                    controller: controllers[4]),
+                    controller: sleepController),
                 const SizedBox(height: 8),
 
                 AppButton(
                   label: 'Отримати передбачення',
                   fontSize: 18,
                   onPressed: () {
+                    showRequiredMessage = true;
                     performAction();
                   },
                 ),
@@ -489,8 +564,6 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
           ),
-        ),
-      ),)
-    );
+        ));
   }
 }
